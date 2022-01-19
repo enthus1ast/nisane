@@ -5,6 +5,25 @@ proc toFloat*(str: string): float {.inline.} = parseFloat(str)
 proc toInt*(str: string): int {.inline.} = parseInt(str)
 proc toChar*(str: string): char {.inline.} = str[0]
 
+type
+  TyKind = enum
+    TyUnsupported
+    TyString
+    TyInt
+    TyFloat
+    TyTuple
+    TyObj
+    TyRef
+
+proc gType(ty: NimNode): TyKind =
+  if ty.getTypeImpl().kind == nnkSym:
+    if ty.getTypeImpl().strVal() == "string": return TyString
+    elif ty.getTypeImpl().strVal() == "int": return TyInt
+    elif ty.getTypeImpl().strVal() == "float": return TyFloat
+  elif ty.getTypeImpl().kind == nnkObjectTy: return TyObj
+  elif ty.getTypeImpl().kind == nnkRefTy: return TyUnsupported # return TyRef
+  elif ty.getTypeImpl().kind == nnkTupleTy: return TyTuple
+
 macro to(se: untyped, tys: varargs[typed]): typed =
     result = newStmtList()
 
@@ -14,6 +33,9 @@ macro to(se: untyped, tys: varargs[typed]): typed =
       # echo "####"
       # echo treeRepr(ty.getTypeImpl())
       # echo "end####"
+
+      # case ty.gType
+      # of TyString:
 
       if ty.getTypeImpl().kind == nnkSym:
         # echo "BASIC TYPE:"
@@ -64,6 +86,11 @@ macro to(se: untyped, tys: varargs[typed]): typed =
           seqidx.inc
 
 
+macro ct(ty: typed): string =
+  ## create table macro
+
+
+
 when isMainModule and true:
 
   # ##
@@ -72,20 +99,6 @@ when isMainModule and true:
   include gatabase/[sugar, templates]
 
   import macros, strutils
-
-
-  # # macro to(se: seq[string], ty: typed) =
-  # macro to(se: untyped, ty: typed) =
-  #   discard
-  #   # for ss in se:
-  #   #   echo ss
-  #   echo repr ty
-  #   for idx, el in ty.getImpl[2][2].pairs:
-  #     echo idx, " ",  repr el
-  #     echo $ty, ".", toStrLit(el[0]), " = " , repr se , "[", idx ,"]", ".to", el[1]
-
-
-
 
   type
     Foo = object
@@ -254,6 +267,3 @@ when isMainModule and false:
       check id2 == 2
       check obj2.bfirst == "bfirst"
       check obj2.bsecond == "bsecond"
-
-
-

@@ -1,30 +1,16 @@
 import macros, strutils
+import typehelpers
 
 template toString*(str: string): string = str
 proc toFloat*(str: string): float {.inline.} = parseFloat(str)
 proc toInt*(str: string): int {.inline.} = parseInt(str)
 proc toChar*(str: string): char {.inline.} = str[0]
 
-type
-  TyKind = enum
-    TyUnsupported
-    TyString
-    TyInt
-    TyFloat
-    TyTuple
-    TyObj
-    TyRef
+template defaultValue*(def: string | int | float) {.pragma.}
+# template defaultValue*() {.pragma.}
 
-proc gType(ty: NimNode): TyKind =
-  if ty.getTypeImpl().kind == nnkSym:
-    if ty.getTypeImpl().strVal() == "string": return TyString
-    elif ty.getTypeImpl().strVal() == "int": return TyInt
-    elif ty.getTypeImpl().strVal() == "float": return TyFloat
-  elif ty.getTypeImpl().kind == nnkObjectTy: return TyObj
-  elif ty.getTypeImpl().kind == nnkRefTy: return TyUnsupported # return TyRef
-  elif ty.getTypeImpl().kind == nnkTupleTy: return TyTuple
-
-macro to(se: untyped, tys: varargs[typed]): typed =
+macro to*(se: untyped, tys: varargs[typed]): typed =
+    echo "to se:", repr se
     result = newStmtList()
 
     var seqidx = 0
@@ -33,41 +19,33 @@ macro to(se: untyped, tys: varargs[typed]): typed =
       # echo "####"
       # echo treeRepr(ty.getTypeImpl())
       # echo "end####"
-
-      # case ty.gType
-      # of TyString:
-
-      if ty.getTypeImpl().kind == nnkSym:
-        # echo "BASIC TYPE:"
-
-        if ty.getTypeImpl().strVal() == "string":
-          # echo "BT: string"
-          let ex = $ty & " = "  & se.strval  & "[" & $seqidx  & "]"  & ".toString"
-          result.add parseStmt(ex)
-          seqidx.inc
-
-        elif ty.getTypeImpl().strVal() == "int":
-          # echo "BT: int"
-          let ex = $ty & " = "  & se.strval  & "[" & $seqidx  & "]"  & ".toInt"
-          result.add parseStmt(ex)
-          seqidx.inc
-
-        elif ty.getTypeImpl().strVal() == "float":
-          # echo "BT: float"
-          let ex = $ty & " = "  & se.strval  & "[" & $seqidx  & "]"  & ".toFloat"
-          result.add parseStmt(ex)
-          seqidx.inc
-
-      elif ty.getTypeImpl().kind == nnkObjectTy:
+      # echo $ty.gType & "##############################"
+      let (kind, tyy) = ty.gType
+      case kind
+      of TyString:
+        # echo "BT: string"
+        let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toString"
+        result.add parseStmt(ex)
+        seqidx.inc
+      of TyInt:
+        # echo "BT: int"
+        let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toInt"
+        result.add parseStmt(ex)
+        seqidx.inc
+      of TyFloat:
+        # echo "BT: float"
+        let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toFloat"
+        result.add parseStmt(ex)
+        seqidx.inc
+      of TyObj:
         # echo "OBJECT TYPE"
-        echo treeRepr(ty.getType())
+        # echo treeRepr(ty.getType())
         for idx, el in ty.getTypeImpl[2].pairs:
           echo idx, " ",  repr el
-          let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & se.strval  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
+          let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
           result.add parseStmt(ex)
           seqidx.inc
-
-      elif ty.getTypeImpl().kind == nnkRefTy:
+      of TyRef:
         echo "REF OBJECT TYPE not implemented!"
         echo "https://github.com/status-im/nim-stew/blob/8a405309c660d1ceca8d505e340850e5b18f83a8/stew/shims/macros.nim#L184"
         echo "####"
@@ -76,24 +54,112 @@ macro to(se: untyped, tys: varargs[typed]): typed =
         # echo treeRepr(ty.symToIdent) #.getType().getType().getTypeImpl())
         # echo repr ty.getTypeImpl().getTypeImpl().getTypeImpl() #getImplTransformed()
         echo "end####"
-
-      elif ty.getTypeImpl().kind == nnkTupleTy:
+      of TyTuple:
         # echo "tuple"
         for idx, el in ty.getTypeImpl.pairs:
           # echo "TU", idx, " ",  repr el
-          let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & se.strval  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
+          let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
           result.add parseStmt(ex)
           seqidx.inc
+      of TyUnsupported:
+        echo "Unsupported!"
+
+proc mapToSqlType*(nimType: string): string =
+  case nimType.toLowerAscii()
+  of "int": return "INTEGER"
+  of "float": return "REAL"
+  of "string": return "TEXT"
 
 
-macro ct(ty: typed): string =
+import strformat
+macro ct*(ty: typed): string =
   ## create table macro
+  # echo "####"
+  # echo treeRepr ty
+  # echo ty.hasCustomPragma(defaultValue)
+  # echo treeRepr ty.getTypeInst
+  # echo ty.getTypeInst.hasCustomPragma(defaultValue)
+  # echo "CT###################### ", repr $ty.gType()
+  let tyName = $ty
 
+  var sq = fmt"CREATE TABLE IF NOT EXISTS {tyName}(" & "\n"
+  # echo
+  var lines: seq[string] = @[]
+  let (kind, tyy) = gType(ty)
+  case kind
+  of TyObj:
+    for idx, el in tyy[2].pairs:
+      echo treeRepr el
+      echo idx, " ",  repr el
+      let name = toStrLit(el[0]).strval
+      let nimType = el[1].strval
+      let sqlType = nimType.mapToSqlType()
+      var ex = fmt"{name} {sqlType} NOT NULL"
+      echo repr el
+      # echo "HAS CUSTOM PRAGMA:", hasCustomPragma(el[0][1], defaultValue)
+      # echo "EX  ", ex
+      lines.add ex
+  else:
+    echo "Unsupported"
+
+  sq &=  "\t" & "id INTEGER PRIMARY KEY,\n"
+  for idx, line in lines.pairs():
+    sq &= "\t" & line
+    if idx < lines.len - 1:
+      sq &= ","
+    sq &= "\n"
+  sq &= ");"
+  return newLit(sq)
+
+macro ci*(ty: typed): string =
+  ## create insert
+  # INSERT INTO Foo (first, second, third, forth) VALUES (?, ?, ?, ?)
+  let tyName = $ty
+  var sq = fmt"INSERT INTO {tyName}("
+  # echo
+  var lines: seq[string] = @[]
+  let (kind, tyy) = gType(ty)
+  case kind
+  of TyObj:
+    for idx, el in tyy[2].pairs:
+      lines.add $el[0]
+    for idx, line in lines.pairs:
+      sq &= line
+      if idx < lines.len - 1:
+        sq &= ", "
+    sq &= ") VALUES ("
+    for idx, line in lines.pairs:
+      sq &= "?"
+      if idx < lines.len - 1:
+        sq &= ", "
+    sq &= ")"
+  else:
+    echo "Unsupported"
+  return newLit(sq)
+
+  discard
+
+
+type
+  FooBaa = object {.defaultValue: "FAA".}
+    # id: int
+    first {.defaultValue: "ff".}: string
+    second: string
+    third {.defaultValue: 0.1337.}: float
+    forth: int
+
+## does not work
+# var fb = FooBaa()
+# echo fb.hasCustomPragma(defaultValue)
+# echo fb.first.hasCustomPragma(defaultValue)
+
+echo ct(FooBaa)
 
 
 when isMainModule and true:
 
   # ##
+  import print
   import db_sqlite
   import gatabase
   include gatabase/[sugar, templates]
@@ -102,14 +168,17 @@ when isMainModule and true:
 
   type
     Foo = object
-      id: int
+      first: string
+      second: string
+      third: float
+      forth: int
+    Foo2 = object
       first: string
       second: string
       third: float
       forth: int
 
-  # echo createTable "Foo":
-  #   Foo
+  echo ct(Foo)
 
   # let myTable = createTable "Foo": [
   #   "first"  := "",
@@ -118,12 +187,12 @@ when isMainModule and true:
   #   "forth" := 0
   # ]
 
-  let myTable = createTable "Foo": [
-    "first"  := string,
-    "second"  := string,
-    "third" := float,
-    "forth" := int,
-  ]
+  # let myTable = createTable "Foo": [
+  #   "first"  := string,
+  #   "second"  := string,
+  #   "third" := float,
+  #   "forth" := int,
+  # ]
 
   # let myTable = createTable "kitten": [
   #   "age"  := 1,
@@ -134,48 +203,70 @@ when isMainModule and true:
 
   # var foo = Foo()
   var se = @["foo", "baa", "13.37", "123"]
-  # to(se, Foo)
 
-  macro to2(se: untyped, ty: typed): typed =
-    result = newStmtList()
-    for idx, el in ty.getTypeImpl[2].pairs:
-      echo idx, " ",  repr el
-      let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & se.strval  & "[" & $idx  & "]" & ".to" & el[1].strval.capitalizeAscii
-      result.add parseStmt(ex)
-
-
-
-  # var foo = Foo()
-  # to2(se, foo)
-  # echo foo
 
   var db = open(":memory:", "", "", "")
-  echo myTable.string
-  # db.exec(myTable)
-  db.exec(sql"""CREATE TABLE IF NOT EXISTS Foo(
-    id    INTEGER PRIMARY KEY,
-          first   TEXT    NOT NULL        DEFAULT '',
-          second  TEXT    NOT NULL        DEFAULT '',
-          third   REAL    NOT NULL        DEFAULT 0.0,
-          forth   INTEGER NOT NULL        DEFAULT 0
-  );""")
+  db.exec(sql ct(Foo))
+  db.exec(sql ct(Foo2))
+  # db.exec(sql"""CREATE TABLE IF NOT EXISTS Foo(
+  #   id    INTEGER PRIMARY KEY,
+  #         first   TEXT    NOT NULL        DEFAULT '',
+  #         second  TEXT    NOT NULL        DEFAULT '',
+  #         third   REAL    NOT NULL        DEFAULT 0.0,
+  #         forth   INTEGER NOT NULL        DEFAULT 0
+  # );""")
 
-  db.exec(sql"""CREATE TABLE IF NOT EXISTS Baa(
-    id    INTEGER PRIMARY KEY,
-          first   TEXT    NOT NULL        DEFAULT '',
-          second  TEXT    NOT NULL        DEFAULT '',
-          third   REAL    NOT NULL        DEFAULT 0.0,
-          forth   INTEGER NOT NULL        DEFAULT 0
-  );""")
+  # db.exec(sql"""CREATE TABLE IF NOT EXISTS Baa(
+  #   id    INTEGER PRIMARY KEY,
+  #         first   TEXT    NOT NULL        DEFAULT '',
+  #         second  TEXT    NOT NULL        DEFAULT '',
+  #         third   REAL    NOT NULL        DEFAULT 0.0,
+  #         forth   INTEGER NOT NULL        DEFAULT 0
+  # );""")
 
-  db.exec(sql"INSERT INTO Foo (first, second, third, forth) VALUES (?, ?, ?, ?)", "first", "second", "13.37", "123")
-  db.exec(sql"INSERT INTO Baa (first, second, third, forth) VALUES (?, ?, ?, ?)", "first", "second", "13.37", "123")
+  # db.exec(sql"INSERT INTO Foo (first, second, third, forth) VALUES (?, ?, ?, ?)", "first", "second", "13.37", "123")
+  for idx in 0..10:
+    db.exec(sql ci(Foo), $idx & "first", "second", "13.37", "123")
+    db.exec(sql ci(Foo2), $idx & "first", "second", "13.37", "123")
 
-  db.exec(sql"INSERT INTO Foo (first, second, third, forth) VALUES (?, ?, ?, ?)", "adfsadfff", "fffasdf", "13.37", "123")
-  db.exec(sql"INSERT INTO Baa (first, second, third, forth) VALUES (?, ?, ?, ?)", "fasdfwefew", "fwef32fwef3", "13.37", "123")
+    db.exec(sql ci(Foo), $idx & "adfsadfff", "fffasdf", "13.37", "123")
+    db.exec(sql ci(Foo2), $idx & "fasdfwefew", "fwef32fwef3", "13.37", "123")
 
-  echo db.getAllRows(sql"select * from Foo, Baa where Foo.id = Baa.id")
+  for row in db.getAllRows(sql"select * from Foo, Foo2 where Foo.id = Foo2.id"):
+    echo row
+    var idFoo: int = -1
+    var foo: Foo = Foo()
+    # var idBaa: int = -1
+    # var baa: Foo2 = Foo2()
+    # to(row, idFoo, foo, idBaa, baa)
 
+
+
+    expandMacros:
+      to(row, idFoo, foo)
+    echo idFoo
+    # print idFoo, foo, idBaa, baa
+
+
+  var idxA: int = -1
+  var idxB: int = -1
+  type AB = object
+    aa: int
+    bb: int
+  for row in db.getAllRows(sql"select count(Foo.id), count(Foo2.id) * 2  from Foo, Foo2 where Foo.second = ? and Foo2.second = ? ", "fffasdf", "fwef32fwef3"):
+    echo row
+    var ab = AB()
+    var aa: int
+    var bb: int
+    expandMacros:
+      row.to(ab)
+    expandMacros:
+      row.to(aa, bb)
+      # row.to(idxA, idxB)
+    echo ab
+    print aa, bb
+    # echo idxA
+    # echo idxB
   # type
   #   RFoo = ref object
   #     ii: int
@@ -209,12 +300,12 @@ when isMainModule and true:
 
 
 
-when isMainModule and false:
+when isMainModule and true:
   import print
   import unittest
 
   type
-    Foo2 = object
+    FooTst = object
       first: string
       second: string
       third: float
@@ -233,7 +324,7 @@ when isMainModule and false:
       check ss == "first"
     test "id + Obj":
       var id: int
-      var obj: Foo2
+      var obj: FooTst
       row.to(id, obj)
       check id == 1
       check obj.first == "first"
@@ -242,7 +333,7 @@ when isMainModule and false:
       check obj.fourth == 123
     test "id + Obj + id2 + Obj2":
       var id: int
-      var obj: Foo2
+      var obj: FooTst
       var id2: int
       var obj2: Baa
       row.to(id, obj, id2, obj2)

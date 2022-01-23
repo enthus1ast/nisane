@@ -1,9 +1,16 @@
+# TODO
+# TODO bool
+# TODO ref object
+# Beef: Depending on what you want you could use disruptek's assume package which has typeit allowing you to iterate fields of objects
+# Beef: https://github.com/disruptek/assume/blob/master/tests/typeit.nim#L102-L199
+
 import macros, strutils
 import typehelpers
 
 template toString*(str: string): string = str
 proc toFloat*(str: string): float {.inline.} = parseFloat(str)
 proc toInt*(str: string): int {.inline.} = parseInt(str)
+proc toBool*(str: string): bool {.inline.} = parseBool(str)
 proc toChar*(str: string): char {.inline.} = str[0]
 
 template defaultValue*(def: string | int | float) {.pragma.}
@@ -30,6 +37,11 @@ macro to*(se: untyped, tys: varargs[typed]): typed =
       of TyInt:
         # echo "BT: int"
         let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toInt"
+        result.add parseStmt(ex)
+        seqidx.inc
+      of TyBool:
+        # echo "BT: int"
+        let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toBool"
         result.add parseStmt(ex)
         seqidx.inc
       of TyFloat:
@@ -69,6 +81,8 @@ proc mapToSqlType*(nimType: string): string =
   of "int": return "INTEGER"
   of "float": return "REAL"
   of "string": return "TEXT"
+  of "bool": return "BOOLEAN"
+  else: return "TEXT"
 
 
 import strformat
@@ -296,6 +310,27 @@ when isMainModule and true:
 
   # # ##
 
+########################################
+# for ty ref
+# import std/macros
+
+# macro doThing(a: typed) =
+#   var impl = a.getTypeImpl
+#   if impl.kind == nnkBracketExpr and impl[0].eqIdent"typedesc":
+#     impl = a.getImpl
+#   elif impl.kind == nnkRefTy and impl[0].kind == nnkSym:
+#     impl = impl[0].getImpl
+#   echo impl.treeRepr
+
+# type
+#   A = ref object
+#     a, b: int
+#     c: string
+#     d: A
+# doThing(A)
+# doThing(A())
+# {.error: "Let's see".}
+###############################
 
 
 
@@ -358,3 +393,10 @@ when isMainModule and true:
       check id2 == 2
       check obj2.bfirst == "bfirst"
       check obj2.bsecond == "bsecond"
+    test "bool":
+      var se = ["1", "true"]
+      var id: int
+      var bb: bool
+      se.to(id, bb)
+      check id == 1
+      check bb == true

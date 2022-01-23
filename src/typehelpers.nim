@@ -4,6 +4,7 @@ type
     TyUnsupported
     TyString
     TyInt
+    TyBool
     TyFloat
     TyTuple
     TyObj
@@ -28,6 +29,7 @@ proc gType*(ty: NimNode): tuple[kind: TyKind, ty: NimNode] =
   elif ty.getTypeImpl().kind == nnkSym:
     if ty.getTypeImpl().strVal() == "string": return (TyString, ty.getTypeImpl())
     elif ty.getTypeImpl().strVal() == "int": return (TyInt, ty.getTypeImpl())
+    elif ty.getTypeImpl().strVal() == "bool": return (TyBool, ty.getTypeImpl())
     elif ty.getTypeImpl().strVal() == "float": return (TyFloat, ty.getTypeImpl())
   elif ty.getTypeImpl().kind == nnkObjectTy: return (TyObj, ty.getTypeImpl())
   elif ty.getTypeImpl().kind == nnkRefTy: return (TyRef, ty.getTypeImpl())
@@ -70,5 +72,9 @@ when isMainModule:
   var ss: string
   assert TyString == foo1(string).kind
   assert TyString == foo1(ss).kind
+
+  var bb: bool
+  assert TyBool == foo1(bool).kind
+  assert TyBool == foo1(bb).kind
 
   # echo foo2(foo) # == TyObj

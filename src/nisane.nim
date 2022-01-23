@@ -153,7 +153,7 @@ type
 # echo fb.hasCustomPragma(defaultValue)
 # echo fb.first.hasCustomPragma(defaultValue)
 
-echo ct(FooBaa)
+# echo ct(FooBaa)
 
 
 when isMainModule and true:

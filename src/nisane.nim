@@ -1,82 +1,104 @@
 # TODO
-# TODO bool
-# TODO ref object
+# DONE bool
+# DONE ref object
+# TODO to macro "_" should skip
 # Beef: Depending on what you want you could use disruptek's assume package which has typeit allowing you to iterate fields of objects
 # Beef: https://github.com/disruptek/assume/blob/master/tests/typeit.nim#L102-L199
 
-import macros, strutils
+import macros, strutils, strformat
 import typehelpers
 
-template toString*(str: string): string = str
+proc toString*(str: string): string = str
+# proc toString*(str: ref string): string = str[]
 proc toFloat*(str: string): float {.inline.} = parseFloat(str)
 proc toInt*(str: string): int {.inline.} = parseInt(str)
 proc toBool*(str: string): bool {.inline.} = parseBool(str)
 proc toChar*(str: string): char {.inline.} = str[0]
 
-template defaultValue*(def: string | int | float) {.pragma.}
+template defaultValue*(def: string | int | float) {.pragma.} ## does not work yet :/
 # template defaultValue*() {.pragma.}
 
 macro to*(se: untyped, tys: varargs[typed]): typed =
-    echo "to se:", repr se
-    result = newStmtList()
+  ## a generic seq/openarray unpacker.
+  runnableExamples:
+    type Obj = object
+      aa: string
+      bb: int
+      cc: bool
+    var se = ["foo", "1", "true"]
+    var obj = Obj()
+    se.to(obj)
+    assert obj.aa == "foo"
+    assert obj.bb == 1
+    assert obj.cc == true
 
-    var seqidx = 0
-    for ty in tys:
+  echo "to se:", repr se
+  result = newStmtList()
 
-      # echo "####"
-      # echo treeRepr(ty.getTypeImpl())
-      # echo "end####"
-      # echo $ty.gType & "##############################"
-      let (kind, tyy) = ty.gType
-      case kind
-      of TyString:
-        # echo "BT: string"
-        let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toString"
+  var seqidx = 0
+  for ty in tys:
+
+    # echo "####"
+    # echo treeRepr(ty.getTypeImpl())
+    # echo "end####"
+    # echo $ty.gType & "##############################"
+    let (kind, tyy) = ty.gType
+    case kind
+    of TyString:
+      # echo "BT: string"
+      let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toString"
+      result.add parseStmt(ex)
+      seqidx.inc
+    of TyInt:
+      # echo "BT: int"
+      let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toInt"
+      result.add parseStmt(ex)
+      seqidx.inc
+    of TyBool:
+      # echo "BT: int"
+      let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toBool"
+      result.add parseStmt(ex)
+      seqidx.inc
+    of TyFloat:
+      # echo "BT: float"
+      let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toFloat"
+      result.add parseStmt(ex)
+      seqidx.inc
+    of TyObj:
+      # echo "OBJECT TYPE"
+      # echo treeRepr(ty.getType())
+      for idx, el in ty.getTypeImpl[2].pairs:
+        echo idx, " ",  repr el
+        let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
         result.add parseStmt(ex)
         seqidx.inc
-      of TyInt:
-        # echo "BT: int"
-        let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toInt"
+    of TyRefObj:
+      for idx, el in tyy[2][2].pairs:
+        echo idx, " ",  repr el
+        let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
         result.add parseStmt(ex)
         seqidx.inc
-      of TyBool:
-        # echo "BT: int"
-        let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toBool"
+    of TyRef:
+      echo "REF OBJECT TYPE not implemented!"
+      echo "https://github.com/status-im/nim-stew/blob/8a405309c660d1ceca8d505e340850e5b18f83a8/stew/shims/macros.nim#L184"
+      echo "####"
+      # echo repr ty.getType()[1]
+      # echo treeRepr(ty.getType().getType())
+      # echo treeRepr(ty.symToIdent) #.getType().getType().getTypeImpl())
+      # echo repr ty.getTypeImpl().getTypeImpl().getTypeImpl() #getImplTransformed()
+      echo "end####"
+    of TyTuple:
+      # echo "tuple"
+      for idx, el in ty.getTypeImpl.pairs:
+        # echo "TU", idx, " ",  repr el
+        let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
         result.add parseStmt(ex)
         seqidx.inc
-      of TyFloat:
-        # echo "BT: float"
-        let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toFloat"
-        result.add parseStmt(ex)
-        seqidx.inc
-      of TyObj:
-        # echo "OBJECT TYPE"
-        # echo treeRepr(ty.getType())
-        for idx, el in ty.getTypeImpl[2].pairs:
-          echo idx, " ",  repr el
-          let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
-          result.add parseStmt(ex)
-          seqidx.inc
-      of TyRef:
-        echo "REF OBJECT TYPE not implemented!"
-        echo "https://github.com/status-im/nim-stew/blob/8a405309c660d1ceca8d505e340850e5b18f83a8/stew/shims/macros.nim#L184"
-        echo "####"
-        # echo repr ty.getType()[1]
-        # echo treeRepr(ty.getType().getType())
-        # echo treeRepr(ty.symToIdent) #.getType().getType().getTypeImpl())
-        # echo repr ty.getTypeImpl().getTypeImpl().getTypeImpl() #getImplTransformed()
-        echo "end####"
-      of TyTuple:
-        # echo "tuple"
-        for idx, el in ty.getTypeImpl.pairs:
-          # echo "TU", idx, " ",  repr el
-          let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
-          result.add parseStmt(ex)
-          seqidx.inc
-      of TyUnsupported:
-        echo "Unsupported!"
+    of TyUnsupported:
+      echo "Unsupported!"
 
 proc mapToSqlType*(nimType: string): string =
+  ## Maps nim type to sql type.
   case nimType.toLowerAscii()
   of "int": return "INTEGER"
   of "float": return "REAL"
@@ -85,8 +107,7 @@ proc mapToSqlType*(nimType: string): string =
   else: return "TEXT"
 
 
-import strformat
-macro ct*(ty: typed): string =
+macro ct*(ty: typed, mapping: proc(nimType: string): string = mapToSqlType): string =
   ## create table macro
   # echo "####"
   # echo treeRepr ty
@@ -97,7 +118,6 @@ macro ct*(ty: typed): string =
   let tyName = $ty
 
   var sq = fmt"CREATE TABLE IF NOT EXISTS {tyName}(" & "\n"
-  # echo
   var lines: seq[string] = @[]
   let (kind, tyy) = gType(ty)
   case kind
@@ -109,7 +129,6 @@ macro ct*(ty: typed): string =
       let nimType = el[1].strval
       let sqlType = nimType.mapToSqlType()
       var ex = fmt"{name} {sqlType} NOT NULL"
-      echo repr el
       # echo "HAS CUSTOM PRAGMA:", hasCustomPragma(el[0][1], defaultValue)
       # echo "EX  ", ex
       lines.add ex
@@ -125,12 +144,12 @@ macro ct*(ty: typed): string =
   sq &= ");"
   return newLit(sq)
 
+
 macro ci*(ty: typed): string =
   ## create insert
   # INSERT INTO Foo (first, second, third, forth) VALUES (?, ?, ?, ?)
   let tyName = $ty
   var sq = fmt"INSERT INTO {tyName}("
-  # echo
   var lines: seq[string] = @[]
   let (kind, tyy) = gType(ty)
   case kind
@@ -142,7 +161,7 @@ macro ci*(ty: typed): string =
       if idx < lines.len - 1:
         sq &= ", "
     sq &= ") VALUES ("
-    for idx, line in lines.pairs:
+    for idx, _ in lines.pairs:
       sq &= "?"
       if idx < lines.len - 1:
         sq &= ", "
@@ -151,34 +170,25 @@ macro ci*(ty: typed): string =
     echo "Unsupported"
   return newLit(sq)
 
-  discard
 
+when isMainModule:
+  type
+    FooBaa = object {.defaultValue: "FAA".}
+      # id: int
+      first {.defaultValue: "ff".}: string
+      second: string
+      third {.defaultValue: 0.1337.}: float
+      forth: int
 
-type
-  FooBaa = object {.defaultValue: "FAA".}
-    # id: int
-    first {.defaultValue: "ff".}: string
-    second: string
-    third {.defaultValue: 0.1337.}: float
-    forth: int
-
-## does not work
-# var fb = FooBaa()
-# echo fb.hasCustomPragma(defaultValue)
-# echo fb.first.hasCustomPragma(defaultValue)
-
-# echo ct(FooBaa)
+  ## does not work
+  # var fb = FooBaa()
+  # echo fb.hasCustomPragma(defaultValue)
+  # echo fb.first.hasCustomPragma(defaultValue)
 
 
 when isMainModule and true:
-
-  # ##
   import print
   import db_sqlite
-  import gatabase
-  include gatabase/[sugar, templates]
-
-  import macros, strutils
 
   type
     Foo = object
@@ -194,41 +204,11 @@ when isMainModule and true:
 
   echo ct(Foo)
 
-  # let myTable = createTable "Foo": [
-  #   "first"  := "",
-  #   "second"  := "",
-  #   "third" := 0.0,
-  #   "forth" := 0
-  # ]
-
-  # let myTable = createTable "Foo": [
-  #   "first"  := string,
-  #   "second"  := string,
-  #   "third" := float,
-  #   "forth" := int,
-  # ]
-
-  # let myTable = createTable "kitten": [
-  #   "age"  := 1,
-  #   "sex"  := 'f',
-  #   "name" := "fluffy",
-  #   "rank" := 3.14,
-  # ]
-
-  # var foo = Foo()
   var se = @["foo", "baa", "13.37", "123"]
-
 
   var db = open(":memory:", "", "", "")
   db.exec(sql ct(Foo))
   db.exec(sql ct(Foo2))
-  # db.exec(sql"""CREATE TABLE IF NOT EXISTS Foo(
-  #   id    INTEGER PRIMARY KEY,
-  #         first   TEXT    NOT NULL        DEFAULT '',
-  #         second  TEXT    NOT NULL        DEFAULT '',
-  #         third   REAL    NOT NULL        DEFAULT 0.0,
-  #         forth   INTEGER NOT NULL        DEFAULT 0
-  # );""")
 
   # db.exec(sql"""CREATE TABLE IF NOT EXISTS Baa(
   #   id    INTEGER PRIMARY KEY,
@@ -250,17 +230,11 @@ when isMainModule and true:
     echo row
     var idFoo: int = -1
     var foo: Foo = Foo()
-    # var idBaa: int = -1
-    # var baa: Foo2 = Foo2()
-    # to(row, idFoo, foo, idBaa, baa)
-
-
 
     expandMacros:
       to(row, idFoo, foo)
     echo idFoo
     # print idFoo, foo, idBaa, baa
-
 
   var idxA: int = -1
   var idxB: int = -1
@@ -279,11 +253,6 @@ when isMainModule and true:
       # row.to(idxA, idxB)
     echo ab
     print aa, bb
-    # echo idxA
-    # echo idxB
-  # type
-  #   RFoo = ref object
-  #     ii: int
 
   # import print
   # block:
@@ -306,38 +275,15 @@ when isMainModule and true:
   #   se.to(idx, ss, ff, obj, tup, obj2)
   #   print idx, ss, ff, obj, tup, obj2
 
-
-
   # # ##
-
-########################################
-# for ty ref
-# import std/macros
-
-# macro doThing(a: typed) =
-#   var impl = a.getTypeImpl
-#   if impl.kind == nnkBracketExpr and impl[0].eqIdent"typedesc":
-#     impl = a.getImpl
-#   elif impl.kind == nnkRefTy and impl[0].kind == nnkSym:
-#     impl = impl[0].getImpl
-#   echo impl.treeRepr
-
-# type
-#   A = ref object
-#     a, b: int
-#     c: string
-#     d: A
-# doThing(A)
-# doThing(A())
-# {.error: "Let's see".}
-###############################
-
 
 
 
 when isMainModule and true:
   import print
   import unittest
+  # import json
+
 
   type
     FooTst = object
@@ -400,3 +346,26 @@ when isMainModule and true:
       se.to(id, bb)
       check id == 1
       check bb == true
+    test "ref obj":
+      var se = ["1", "foo", "true"]
+      type Robj = ref object
+        ii: int
+        ss: string
+        bb: bool
+      var robj = Robj()
+      se.to(robj)
+      check robj.ii == 1
+      check robj.ss == "foo"
+      check robj.bb == true
+    # test "ref str":
+    #   var se = ["foo"]
+    #   type Rstr = ref string
+    #   var rstr: Rstr
+    #   se.to(rstr)
+    #   # check rstr == foo
+    # test "json":
+    #   proc toJson(str: string): JsonNode = parseJson(str)
+    #   var se = ["{\"a\": [1,2,3]}"]
+    #   var js = %* {}
+    #   se.to(js)
+    #   echo js

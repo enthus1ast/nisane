@@ -9,6 +9,32 @@ type
     TyTuple
     TyObj
     TyRef
+    TyRefObj
+
+
+
+########################################
+# beef: for ty ref
+# import std/macros
+
+# macro doThing(a: typed) =
+#   var impl = a.getTypeImpl
+#   if impl.kind == nnkBracketExpr and impl[0].eqIdent"typedesc":
+#     impl = a.getImpl
+#   elif impl.kind == nnkRefTy and impl[0].kind == nnkSym:
+#     impl = impl[0].getImpl
+#   echo impl.treeRepr
+
+# type
+#   A = ref object
+#     a, b: int
+#     c: string
+#     d: A
+# doThing(A)
+# doThing(A())
+# {.error: "Let's see".}
+###############################
+
 
 proc gType*(ty: NimNode): tuple[kind: TyKind, ty: NimNode] =
   # echo "VVVVVVVVVV"
@@ -32,12 +58,18 @@ proc gType*(ty: NimNode): tuple[kind: TyKind, ty: NimNode] =
     elif ty.getTypeImpl().strVal() == "bool": return (TyBool, ty.getTypeImpl())
     elif ty.getTypeImpl().strVal() == "float": return (TyFloat, ty.getTypeImpl())
   elif ty.getTypeImpl().kind == nnkObjectTy: return (TyObj, ty.getTypeImpl())
-  elif ty.getTypeImpl().kind == nnkRefTy: return (TyRef, ty.getTypeImpl())
+  # elif ty.getTypeImpl().kind == nnkRefTy: return (TyRef, ty.getTypeImpl())
   elif ty.getTypeImpl().kind == nnkTupleTy: return (TyTuple, ty.getTypeImpl())
   elif ty.getTypeImpl().kind == nnkBracketExpr: # and ty.getType().kind == nnkBracketExpr:
     ## unpack the type (int) and call again
     return ty.getTypeImpl()[1].gtype()
-    discard
+  elif ty.getTypeImpl().kind == nnkRefTy and ty.getTypeImpl()[0].kind == nnkSym:
+    ## Ref obj # TODO this could also be other ref types!
+    # if ty.getTypeImpl[0].getType.kind == nnkSym:
+    #   if ty.getTypeImpl[0].getType.strval == "string":
+    #     return (TyString, ty.getTypeImpl())
+    return (TyRefObj, ty.getTypeImpl[0].getImpl) # [2])
+
   else: return (TyUnsupported, newNimNode(nnkNone))
 
 
@@ -76,5 +108,22 @@ when isMainModule:
   var bb: bool
   assert TyBool == foo1(bool).kind
   assert TyBool == foo1(bb).kind
+
+  # type Rstr = ref string
+  # var rss: Rstr
+  # assert TyString == foo1(Rstr).kind
+  # assert TyString == foo1(rss).kind
+  # assert TyBool == foo1(bool).kind
+  # assert TyBool == foo1(bb).kind
+
+  type Robj = ref object
+    ii: int
+    bb: bool
+  var robj: Robj
+  # echo foo1(robj).kind
+  # echo foo1(Robj).kind
+  assert TyRefObj == foo1(Robj).kind
+  assert TyRefObj == foo1(robj).kind
+
 
   # echo foo2(foo) # == TyObj

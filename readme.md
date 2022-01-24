@@ -29,8 +29,6 @@ type
     third: float
     forth: int
 
-var se = @["foo", "baa", "13.37", "123"]
-
 var db = open(":memory:", "", "", "")
 
 # Easy to create tables based on types.

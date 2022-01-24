@@ -192,21 +192,10 @@ when isMainModule and true:
 
   echo ct(Foo)
 
-  var se = @["foo", "baa", "13.37", "123"]
-
   var db = open(":memory:", "", "", "")
   db.exec(sql ct(Foo))
   db.exec(sql ct(Foo2))
 
-  # db.exec(sql"""CREATE TABLE IF NOT EXISTS Baa(
-  #   id    INTEGER PRIMARY KEY,
-  #         first   TEXT    NOT NULL        DEFAULT '',
-  #         second  TEXT    NOT NULL        DEFAULT '',
-  #         third   REAL    NOT NULL        DEFAULT 0.0,
-  #         forth   INTEGER NOT NULL        DEFAULT 0
-  # );""")
-
-  # db.exec(sql"INSERT INTO Foo (first, second, third, forth) VALUES (?, ?, ?, ?)", "first", "second", "13.37", "123")
   for idx in 0..10:
     db.exec(sql ci(Foo), $idx & "first", "second", "13.37", "123")
     db.exec(sql ci(Foo2), $idx & "first", "second", "13.37", "123")
@@ -237,36 +226,10 @@ when isMainModule and true:
     echo ab
     print aa, bb
 
-  # import print
-  # block:
-  #   var se = @["1", "sss", "33.33", "123" , "first", "second", "13.37", "123", "11", "22", "33", "123", "first", "second", "13.37", "123",]
-  #   var idx = 0
-  #   var ss = ""
-  #   var ff = 13.37
-  #   var obj = Foo()
-  #   var obj2 = Foo()
-
-  #   var robj = RFoo()
-  #   var tup: tuple[a, b, c: int]
-  #     # to3(se, idx, ss, ff, obj, robj, tup)
-  #   # expandMacros:
-  #   #   to3(se, idx, ss, ff, obj, tup)
-  #   expandMacros:
-  #     to(se, idx, ss, ff, obj, tup, obj2)
-
-  #   # to3(se, idx, ss, ff, obj, tup)
-  #   se.to(idx, ss, ff, obj, tup, obj2)
-  #   print idx, ss, ff, obj, tup, obj2
-
-  # # ##
-
-
-
 when isMainModule and true:
   import print
   import unittest
   # import json
-
 
   type
     FooTst = object

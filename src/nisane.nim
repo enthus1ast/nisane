@@ -61,12 +61,12 @@ macro to*(se: untyped, tys: varargs[typed]): typed =
       result.add parseStmt(ex)
       seqidx.inc
     of TyObj:
-      for idx, el in ty.getTypeImpl[2].pairs:
+      for idx, el in tyy.pairs:
         let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
         result.add parseStmt(ex)
         seqidx.inc
     of TyRefObj:
-      for idx, el in tyy[2][2].pairs:
+      for idx, el in tyy.pairs:
         let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
         result.add parseStmt(ex)
         seqidx.inc
@@ -80,7 +80,7 @@ macro to*(se: untyped, tys: varargs[typed]): typed =
       # echo repr ty.getTypeImpl().getTypeImpl().getTypeImpl() #getImplTransformed()
       echo "end####"
     of TyTuple:
-      for idx, el in ty.getTypeImpl.pairs:
+      for idx, el in tyy.pairs:
         let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
         result.add parseStmt(ex)
         seqidx.inc
@@ -107,12 +107,12 @@ macro ct*(ty: typed, mapping: proc(nimType: string): string = mapToSqlType): str
   # echo "CT###################### ", repr $ty.gType()
   let tyName = $ty
 
-  var sq = fmt"CREATE TABLE IF NOT EXISTS {tyName}(" & "\n"
   var lines: seq[string] = @[]
   let (kind, tyy) = gType(ty)
   case kind
-  of TyObj:
-    for idx, el in tyy[2].pairs:
+  of TyObj, TyRefObj, TyTuple:
+    echo treeRepr(tyy)
+    for idx, el in tyy.pairs:
       let name = toStrLit(el[0]).strval
       let nimType = el[1].strval
       let sqlType = nimType.mapToSqlType()
@@ -123,6 +123,7 @@ macro ct*(ty: typed, mapping: proc(nimType: string): string = mapToSqlType): str
   else:
     echo "Unsupported"
 
+  var sq = fmt"CREATE TABLE IF NOT EXISTS {tyName}(" & "\n"
   sq &=  "\t" & "id INTEGER PRIMARY KEY,\n"
   for idx, line in lines.pairs():
     sq &= "\t" & line
@@ -137,26 +138,35 @@ macro ci*(ty: typed): string =
   ## create insert
   # INSERT INTO Foo (first, second, third, forth) VALUES (?, ?, ?, ?)
   let tyName = $ty
-  var sq = fmt"INSERT INTO {tyName}("
   var lines: seq[string] = @[]
   let (kind, tyy) = gType(ty)
   case kind
-  of TyObj:
-    for idx, el in tyy[2].pairs:
+  of TyObj, TyTuple, TyRefObj:
+    for idx, el in tyy.pairs:
       lines.add $el[0]
-    for idx, line in lines.pairs:
-      sq &= line
-      if idx < lines.len - 1:
-        sq &= ", "
-    sq &= ") VALUES ("
-    for idx, _ in lines.pairs:
-      sq &= "?"
-      if idx < lines.len - 1:
-        sq &= ", "
-    sq &= ")"
   else:
     echo "Unsupported"
+    return
+
+  var sq = fmt"INSERT INTO {tyName}("
+  for idx, line in lines.pairs:
+    sq &= line
+    if idx < lines.len - 1:
+      sq &= ", "
+  sq &= ") VALUES ("
+  for idx, _ in lines.pairs:
+    sq &= "?"
+    if idx < lines.len - 1:
+      sq &= ", "
+  sq &= ")"
   return newLit(sq)
+
+macro csv*(ty: typed): string =
+  ## create select value
+  ## this creates a string:
+  ## "SELECT foo, baa, baz FROM Typename"
+
+
 
 
 when isMainModule:
@@ -240,6 +250,10 @@ when isMainModule and true:
     Baa = object
       bfirst: string
       bsecond: string
+    RBaa = ref object
+      bfirst: string
+      bsecond: string
+    TBaa = tuple[bfirst, bsecond: string]
 
   var row = @["1", "first", "second", "13.37", "123", "2", "bfirst", "bsecond"]
   suite "nisane":
@@ -324,3 +338,15 @@ when isMainModule and true:
     #   var js = %* {}
     #   se.to(js)
     #   echo js
+    test "ci object":
+      check ci(Baa) == "INSERT INTO Baa(bfirst, bsecond) VALUES (?, ?)"
+    test "ci ref object":
+      check ci(RBaa) == "INSERT INTO RBaa(bfirst, bsecond) VALUES (?, ?)"
+    test "ci tuple":
+      check ci(TBaa) == "INSERT INTO TBaa(bfirst, bsecond) VALUES (?, ?)"
+    test "ct object":
+      check ct(Baa) == unescape "\"CREATE TABLE IF NOT EXISTS Baa(\x0A\x09id INTEGER PRIMARY KEY,\x0A\x09bfirst TEXT NOT NULL,\x0A\x09bsecond TEXT NOT NULL\x0A);\""
+    test "ct ref object":
+      check ct(RBaa) == unescape "\"CREATE TABLE IF NOT EXISTS RBaa(\x0A\x09id INTEGER PRIMARY KEY,\x0A\x09bfirst TEXT NOT NULL,\x0A\x09bsecond TEXT NOT NULL\x0A);\""
+    test "ct tuple":
+      check ct(TBaa) == unescape "\"CREATE TABLE IF NOT EXISTS TBaa(\x0A\x09id INTEGER PRIMARY KEY,\x0A\x09bfirst TEXT NOT NULL,\x0A\x09bsecond TEXT NOT NULL\x0A);\""

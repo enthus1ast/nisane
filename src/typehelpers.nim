@@ -57,7 +57,7 @@ proc gType*(ty: NimNode): tuple[kind: TyKind, ty: NimNode] =
     elif ty.getTypeImpl().strVal() == "int": return (TyInt, ty.getTypeImpl())
     elif ty.getTypeImpl().strVal() == "bool": return (TyBool, ty.getTypeImpl())
     elif ty.getTypeImpl().strVal() == "float": return (TyFloat, ty.getTypeImpl())
-  elif ty.getTypeImpl().kind == nnkObjectTy: return (TyObj, ty.getTypeImpl())
+  elif ty.getTypeImpl().kind == nnkObjectTy: return (TyObj, ty.getTypeImpl()[2])
   # elif ty.getTypeImpl().kind == nnkRefTy: return (TyRef, ty.getTypeImpl())
   elif ty.getTypeImpl().kind == nnkTupleTy: return (TyTuple, ty.getTypeImpl())
   elif ty.getTypeImpl().kind == nnkBracketExpr: # and ty.getType().kind == nnkBracketExpr:
@@ -68,7 +68,7 @@ proc gType*(ty: NimNode): tuple[kind: TyKind, ty: NimNode] =
     # if ty.getTypeImpl[0].getType.kind == nnkSym:
     #   if ty.getTypeImpl[0].getType.strval == "string":
     #     return (TyString, ty.getTypeImpl())
-    return (TyRefObj, ty.getTypeImpl[0].getImpl) # [2])
+    return (TyRefObj, ty.getTypeImpl[0].getImpl[2][2]) # [2])
 
   else: return (TyUnsupported, newNimNode(nnkNone))
 

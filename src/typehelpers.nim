@@ -5,6 +5,7 @@ type
     TyUnsupported
     TyString
     TyInt
+    TyInt64
     TyBool
     TyFloat
     TyTuple

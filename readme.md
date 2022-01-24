@@ -44,6 +44,6 @@ for idx in 0..10:
 for row in db.getAllRows(sql"select * from Foo, Foo2 where Foo.id = Foo2.id"):
   var foo: Foo = Foo()
   var foo2: Foo2 = Foo2()
-  to(row, nil, foo, nil, foo2) # skip elements with nil (eg: table id's)
+  row.to(nil, foo, nil, foo2) # skip elements with nil (eg: table id's)
   # ... use foo and foo2
 ```

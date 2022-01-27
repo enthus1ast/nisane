@@ -13,6 +13,7 @@ proc toString*(str: string): string = str
 # proc toString*(str: ref string): string = str[]
 proc toFloat*(str: string): float {.inline.} = parseFloat(str)
 proc toInt*(str: string): int {.inline.} = parseInt(str)
+proc toInt64*(str: string): int64 {.inline.} = str.toInt().int64
 proc toBool*(str: string): bool {.inline.} = parseBool(str)
 proc toChar*(str: string): char {.inline.} = str[0]
 
@@ -50,6 +51,10 @@ macro to*(se: untyped, tys: varargs[typed]): typed =
       seqidx.inc
     of TyInt:
       let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toInt"
+      result.add parseStmt(ex)
+      seqidx.inc
+    of TyInt64:
+      let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toInt64"
       result.add parseStmt(ex)
       seqidx.inc
     of TyBool:

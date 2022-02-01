@@ -161,12 +161,47 @@ macro ci*(ty: typed): string =
   sq &= ")"
   return newLit(sq)
 
-macro csv*(ty: typed): string =
+macro an*(ty: typed): string =
+  ## returns all the objects AttributeNames
+  var lines: seq[string] = @[]
+  let (kind, tyy) = gType(ty)
+  case kind
+  of TyObj, TyTuple, TyRefObj:
+    for idx, el in tyy.pairs:
+      lines.add $el[0]
+  else:
+    echo "Unsupported"
+    return
+  var sq = ""
+  for idx, el in lines.pairs:
+    sq &=  $el
+    if idx < lines.len - 1:
+      sq &= ", "
+  return newLit(sq)
+
+macro csv*(ty: typed, withId: static bool = false): string =
   ## create select value
   ## this creates a string:
   ## "SELECT foo, baa, baz FROM Typename"
-
-
+  let tyName = $ty
+  var lines: seq[string] = @[]
+  let (kind, tyy) = gType(ty)
+  case kind
+  of TyObj, TyTuple, TyRefObj:
+    for idx, el in tyy.pairs:
+      lines.add $el[0]
+  else:
+    echo "Unsupported"
+    return
+  var sq = "SELECT "
+  if withId:
+    sq &= "id, "
+  for idx, el in lines.pairs:
+    sq &=  $el
+    if idx < lines.len - 1:
+      sq &= ", "
+  sq &= fmt" FROM {tyName}"
+  return newLit(sq)
 
 
 when isMainModule:
@@ -350,3 +385,11 @@ when isMainModule and true:
       check ct(RBaa) == unescape "\"CREATE TABLE IF NOT EXISTS RBaa(\x0A\x09id INTEGER PRIMARY KEY,\x0A\x09bfirst TEXT NOT NULL,\x0A\x09bsecond TEXT NOT NULL\x0A);\""
     test "ct tuple":
       check ct(TBaa) == unescape "\"CREATE TABLE IF NOT EXISTS TBaa(\x0A\x09id INTEGER PRIMARY KEY,\x0A\x09bfirst TEXT NOT NULL,\x0A\x09bsecond TEXT NOT NULL\x0A);\""
+
+
+    echo an(Baa)
+    echo an(Baa)
+    echo an(Baa)
+    echo csv(Baa, true)
+    echo csv(Baa, true)
+    echo csv(Baa, true)

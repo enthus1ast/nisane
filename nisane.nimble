@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.1.1"
+version       = "0.1.2"
 author        = "David Krause"
 description   = "seq unpacker and mini 'orm'"
 license       = "MIT"

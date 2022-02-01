@@ -1,11 +1,13 @@
-import macros
+import std/[macros, strutils]
+
 type
   TyKind* = enum
     TyUnsupported
-    TyString
-    TyInt
-    TyBool
-    TyFloat
+    TyString = "string"
+    TyInt = "int"
+    TyBool = "bool"
+    TyFloat = "float"
+    TyInt64 = "int64"
     TyTuple
     TyObj
     TyRef
@@ -37,40 +39,34 @@ type
 
 
 proc gType*(ty: NimNode): tuple[kind: TyKind, ty: NimNode] =
-  # echo "VVVVVVVVVV"
-  # # echo repr $ty
-  # echo treeRepr(ty.getImpl())
-  # echo "--------"
-  # echo treeRepr(ty.getTypeImpl())
-  # echo "========="
-  # echo treeRepr(ty.getType())
-  # echo "########"
-  # echo ty.getTypeImpl().kind
-
-  # echo ty.getImp().kind
   if ty.kind == nnkSym and ty.getImpl().kind == nnkTypeDef:
     ## unpack the type (object and tuple) and call again
-    # echo "---->nnkTypeDef ", repr ty.getImpl()
     return ty.getImpl()[2].gType()
-  elif ty.getTypeImpl().kind == nnkSym:
-    if ty.getTypeImpl().strVal() == "string": return (TyString, ty.getTypeImpl())
-    elif ty.getTypeImpl().strVal() == "int": return (TyInt, ty.getTypeImpl())
-    elif ty.getTypeImpl().strVal() == "bool": return (TyBool, ty.getTypeImpl())
-    elif ty.getTypeImpl().strVal() == "float": return (TyFloat, ty.getTypeImpl())
-  elif ty.getTypeImpl().kind == nnkObjectTy: return (TyObj, ty.getTypeImpl()[2])
-  # elif ty.getTypeImpl().kind == nnkRefTy: return (TyRef, ty.getTypeImpl())
-  elif ty.getTypeImpl().kind == nnkTupleTy: return (TyTuple, ty.getTypeImpl())
-  elif ty.getTypeImpl().kind == nnkBracketExpr: # and ty.getType().kind == nnkBracketExpr:
-    ## unpack the type (int) and call again
-    return ty.getTypeImpl()[1].gtype()
-  elif ty.getTypeImpl().kind == nnkRefTy and ty.getTypeImpl()[0].kind == nnkSym:
-    ## Ref obj # TODO this could also be other ref types!
-    # if ty.getTypeImpl[0].getType.kind == nnkSym:
-    #   if ty.getTypeImpl[0].getType.strval == "string":
-    #     return (TyString, ty.getTypeImpl())
-    return (TyRefObj, ty.getTypeImpl[0].getImpl[2][2]) # [2])
 
-  else: return (TyUnsupported, newNimNode(nnkNone))
+  let typeImpl: NimNode = ty.getTypeImpl()
+  case typeImpl.kind:
+    of nnkSym:
+      let typeTyKind: TyKind = parseEnum[TyKind](typeImpl.strVal())
+      return (typeTyKind, typeImpl)
+
+    of nnkObjectTy: 
+      return (TyObj, typeImpl[2])
+
+    of nnkTupleTy: 
+      return (TyTuple, typeImpl)
+    
+    of nnkBracketExpr:
+      ## unpack the type (int) and call again
+      return typeImpl[1].gtype()
+    
+    of nnkRefTy:
+      if typeImpl[0].kind == nnkSym:
+        return (TyRefObj, ty.getTypeImpl[0].getImpl[2][2]) # [2])
+      else:
+        return (TyUnsupported, newNimNode(nnkNone))
+    
+    else: 
+      return (TyUnsupported, newNimNode(nnkNone))
 
 
 when isMainModule:
@@ -124,6 +120,7 @@ when isMainModule:
   # echo foo1(Robj).kind
   assert TyRefObj == foo1(Robj).kind
   assert TyRefObj == foo1(robj).kind
+
 
 
   # echo foo2(foo) # == TyObj

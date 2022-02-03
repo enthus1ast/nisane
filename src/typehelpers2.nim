@@ -7,7 +7,7 @@ template default(str: int) {.pragma.}
 template default(str: float) {.pragma.}
 template rax(str: string) {.pragma.}
 template iii(ii: int) {.pragma.}
-template tablename(name: string) {.pragma.} ## Overwrite the tablename
+template tablename*(name: string) {.pragma.} ## Overwrite the tablename
 template id(idname: string = "id") {.pragma.} ## adds the id
 
 type
@@ -16,11 +16,11 @@ type
     TyPragmaFloat
     TyPragmaString
   TyPragma = object
-    name: string
-    case kind: TyPragmaKind
-    of TyPragmaInt: intVal: int
-    of TyPragmaFloat: floatVal: float
-    of TyPragmaString: strVal: string
+    name*: string
+    case kind*: TyPragmaKind
+    of TyPragmaInt: intVal*: int
+    of TyPragmaFloat: floatVal*: float
+    of TyPragmaString: strVal*: string
 
 
 
@@ -36,7 +36,7 @@ proc hasPragmaDef(ty: NimNode): bool =
   return false
 
 
-proc typePragma(ty: NimNode): Table[string, TyPragma] =
+proc typePragma*(ty: NimNode): Table[string, TyPragma] =
   # result = newStmtList()
   echo treeRepr ty.getImpl
   var tp: Table[string, TyPragma]
@@ -88,6 +88,16 @@ macro attribPragma(ty: typed) =
   #   echo "type def"
   #   if tyi[0].kind == nnkPragmaExpr:
   #     echo "pragma expr"
+
+macro dummy2(ty: typed) =
+  let (kind, tyy) = gType(ty)
+  case kind
+  of TyObj, TyTuple, TyRefObj:
+    for idx, el in tyy.pairs:
+      echo repr attribPragma(el)
+      # lines.add $el[0]
+  else:
+    discard
 
 when isMainModule:
   dummy(Foo)

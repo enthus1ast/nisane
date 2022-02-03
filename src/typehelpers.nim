@@ -10,33 +10,7 @@ type
     TyInt64 = "int64"
     TyTuple
     TyObj
-    TyRef
     TyRefObj
-
-
-
-########################################
-# beef: for ty ref
-# import std/macros
-
-# macro doThing(a: typed) =
-#   var impl = a.getTypeImpl
-#   if impl.kind == nnkBracketExpr and impl[0].eqIdent"typedesc":
-#     impl = a.getImpl
-#   elif impl.kind == nnkRefTy and impl[0].kind == nnkSym:
-#     impl = impl[0].getImpl
-#   echo impl.treeRepr
-
-# type
-#   A = ref object
-#     a, b: int
-#     c: string
-#     d: A
-# doThing(A)
-# doThing(A())
-# {.error: "Let's see".}
-###############################
-
 
 proc gType*(ty: NimNode): tuple[kind: TyKind, ty: NimNode] =
   if ty.kind == nnkSym and ty.getImpl().kind == nnkTypeDef:
@@ -49,23 +23,23 @@ proc gType*(ty: NimNode): tuple[kind: TyKind, ty: NimNode] =
       let typeTyKind: TyKind = parseEnum[TyKind](typeImpl.strVal())
       return (typeTyKind, typeImpl)
 
-    of nnkObjectTy: 
+    of nnkObjectTy:
       return (TyObj, typeImpl[2])
 
-    of nnkTupleTy: 
+    of nnkTupleTy:
       return (TyTuple, typeImpl)
-    
+
     of nnkBracketExpr:
       ## unpack the type (int) and call again
       return typeImpl[1].gtype()
-    
+
     of nnkRefTy:
       if typeImpl[0].kind == nnkSym:
         return (TyRefObj, ty.getTypeImpl[0].getImpl[2][2]) # [2])
       else:
         return (TyUnsupported, newNimNode(nnkNone))
-    
-    else: 
+
+    else:
       return (TyUnsupported, newNimNode(nnkNone))
 
 

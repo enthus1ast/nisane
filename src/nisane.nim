@@ -6,11 +6,11 @@
 # Beef: Depending on what you want you could use disruptek's assume package which has typeit allowing you to iterate fields of objects
 # Beef: https://github.com/disruptek/assume/blob/master/tests/typeit.nim#L102-L199
 
-import macros, strutils, strformat
+import macros, strutils, strformat, tables
 import typehelpers
+import typehelpers2
 
 proc toString*(str: string): string = str
-# proc toString*(str: ref string): string = str[]
 proc toFloat*(str: string): float {.inline.} = parseFloat(str)
 proc toInt*(str: string): int {.inline.} = parseInt(str)
 proc toInt64*(str: string): int64 {.inline.} = str.toInt().int64
@@ -39,30 +39,10 @@ macro to*(se: untyped, tys: varargs[typed]): typed =
     if (repr ty) == "nil": # Skip this type
       seqidx.inc
       continue
-    # echo "####"
-    # echo treeRepr(ty.getTypeImpl())
-    # echo "end####"
-    # echo $ty.gType & "##############################"
     let (kind, tyy) = ty.gType
     case kind
-    of TyString:
-      let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toString"
-      result.add parseStmt(ex)
-      seqidx.inc
-    of TyInt:
-      let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toInt"
-      result.add parseStmt(ex)
-      seqidx.inc
-    of TyInt64:
-      let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toInt64"
-      result.add parseStmt(ex)
-      seqidx.inc
-    of TyBool:
-      let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toBool"
-      result.add parseStmt(ex)
-      seqidx.inc
-    of TyFloat:
-      let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".toFloat"
+    of TyString, TyInt, TyInt64, TyBool, TyFloat:
+      let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".to" & ty.getType.strval.capitalizeAscii
       result.add parseStmt(ex)
       seqidx.inc
     of TyObj:
@@ -75,15 +55,6 @@ macro to*(se: untyped, tys: varargs[typed]): typed =
         let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
         result.add parseStmt(ex)
         seqidx.inc
-    of TyRef:
-      echo "REF OBJECT TYPE not implemented!"
-      echo "https://github.com/status-im/nim-stew/blob/8a405309c660d1ceca8d505e340850e5b18f83a8/stew/shims/macros.nim#L184"
-      echo "####"
-      # echo repr ty.getType()[1]
-      # echo treeRepr(ty.getType().getType())
-      # echo treeRepr(ty.symToIdent) #.getType().getType().getTypeImpl())
-      # echo repr ty.getTypeImpl().getTypeImpl().getTypeImpl() #getImplTransformed()
-      echo "end####"
     of TyTuple:
       for idx, el in tyy.pairs:
         let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
@@ -92,10 +63,12 @@ macro to*(se: untyped, tys: varargs[typed]): typed =
     of TyUnsupported:
       echo "Unsupported!"
 
+
 proc mapToSqlType*(nimType: string): string =
   ## Maps nim type to sql type.
   case nimType.toLowerAscii()
   of "int": return "INTEGER"
+  of "int64": return "INTEGER"
   of "float": return "REAL"
   of "string": return "TEXT"
   of "bool": return "BOOLEAN"
@@ -110,13 +83,13 @@ macro ct*(ty: typed, mapping: proc(nimType: string): string = mapToSqlType): str
   # echo treeRepr ty.getTypeInst
   # echo ty.getTypeInst.hasCustomPragma(defaultValue)
   # echo "CT###################### ", repr $ty.gType()
-  let tyName = $ty
+  var tyName = $ty
 
   var lines: seq[string] = @[]
   let (kind, tyy) = gType(ty)
   case kind
   of TyObj, TyRefObj, TyTuple:
-    echo treeRepr(tyy)
+    # echo treeRepr(tyy)
     for idx, el in tyy.pairs:
       let name = toStrLit(el[0]).strval
       let nimType = el[1].strval
@@ -128,6 +101,10 @@ macro ct*(ty: typed, mapping: proc(nimType: string): string = mapToSqlType): str
   else:
     echo "Unsupported"
 
+  echo "TYPE PRAGMA: ##########################"
+  let pragmas = ty.typePragma()
+  if pragmas.hasKey("tablename"):
+    tyName = pragmas["tablename"].strVal
   var sq = fmt"CREATE TABLE IF NOT EXISTS {tyName}(" & "\n"
   sq &=  "\t" & "id INTEGER PRIMARY KEY,\n"
   for idx, line in lines.pairs():
@@ -142,7 +119,7 @@ macro ct*(ty: typed, mapping: proc(nimType: string): string = mapToSqlType): str
 macro ci*(ty: typed): string =
   ## create insert
   # INSERT INTO Foo (first, second, third, forth) VALUES (?, ?, ?, ?)
-  let tyName = $ty
+  var tyName = $ty
   var lines: seq[string] = @[]
   let (kind, tyy) = gType(ty)
   case kind
@@ -152,6 +129,10 @@ macro ci*(ty: typed): string =
   else:
     echo "Unsupported"
     return
+
+  let pragmas = ty.typePragma()
+  if pragmas.hasKey("tablename"):
+    tyName = pragmas["tablename"].strVal
 
   var sq = fmt"INSERT INTO {tyName}("
   for idx, line in lines.pairs:
@@ -188,7 +169,7 @@ macro csv*(ty: typed, withId: static bool = false): string =
   ## create select value
   ## this creates a string:
   ## "SELECT foo, baa, baz FROM Typename"
-  let tyName = $ty
+  var tyName = $ty
   var lines: seq[string] = @[]
   let (kind, tyy) = gType(ty)
   case kind
@@ -205,6 +186,10 @@ macro csv*(ty: typed, withId: static bool = false): string =
     sq &=  $el
     if idx < lines.len - 1:
       sq &= ", "
+
+  let pragmas = ty.typePragma()
+  if pragmas.hasKey("tablename"):
+    tyName = pragmas["tablename"].strVal
   sq &= fmt" FROM {tyName}"
   return newLit(sq)
 
@@ -218,18 +203,12 @@ when isMainModule:
       third {.defaultValue: 0.1337.}: float
       forth: int
 
-  ## does not work
-  # var fb = FooBaa()
-  # echo fb.hasCustomPragma(defaultValue)
-  # echo fb.first.hasCustomPragma(defaultValue)
-
-
 when isMainModule and true:
   import print
   import db_sqlite
 
   type
-    Foo = object
+    Foo {.tablename: "Fax".} = object
       first: string
       second: string
       third: float
@@ -253,7 +232,7 @@ when isMainModule and true:
     db.exec(sql ci(Foo), $idx & "adfsadfff", "fffasdf", "13.37", "123")
     db.exec(sql ci(Foo2), $idx & "fasdfwefew", "fwef32fwef3", "13.37", "123")
 
-  for row in db.getAllRows(sql"select * from Foo, Foo2 where Foo.id = Foo2.id"):
+  for row in db.getAllRows(sql"select * from Fax, Foo2 where Fax.id = Foo2.id"):
     var foo: Foo = Foo()
     var foo2: Foo2 = Foo2()
     to(row, nil, foo, nil, foo2) # skip elements with nil (eg: table id's)
@@ -263,7 +242,7 @@ when isMainModule and true:
   type AB = object
     aa: int
     bb: int
-  for row in db.getAllRows(sql"select count(Foo.id), count(Foo2.id) * 2  from Foo, Foo2 where Foo.second = ? and Foo2.second = ? ", "fffasdf", "fwef32fwef3"):
+  for row in db.getAllRows(sql"select count(Fax.id), count(Foo2.id) * 2  from Fax, Foo2 where Fax.second = ? and Foo2.second = ? ", "fffasdf", "fwef32fwef3"):
     echo row
     var ab = AB()
     var aa: int
@@ -390,11 +369,9 @@ when isMainModule and true:
       check ct(RBaa) == unescape "\"CREATE TABLE IF NOT EXISTS RBaa(\x0A\x09id INTEGER PRIMARY KEY,\x0A\x09bfirst TEXT NOT NULL,\x0A\x09bsecond TEXT NOT NULL\x0A);\""
     test "ct tuple":
       check ct(TBaa) == unescape "\"CREATE TABLE IF NOT EXISTS TBaa(\x0A\x09id INTEGER PRIMARY KEY,\x0A\x09bfirst TEXT NOT NULL,\x0A\x09bsecond TEXT NOT NULL\x0A);\""
-
-
-    echo an(Baa)
-    echo an(Baa)
-    echo an(Baa)
-    echo csv(Baa, true)
-    echo csv(Baa, true)
-    echo csv(Baa, true)
+    # echo an(Baa)
+    # echo an(Baa)
+    # echo an(Baa)
+    # echo csv(Baa, true)
+    # echo csv(Baa, true)
+    # echo csv(Baa, true)

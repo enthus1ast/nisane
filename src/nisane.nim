@@ -45,23 +45,44 @@ macro to*(se: untyped, tys: varargs[typed]): typed =
       let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".to" & ty.getType.strval.capitalizeAscii
       result.add parseStmt(ex)
       seqidx.inc
-    of TyObj:
+    of TyObj, TyRefObj, TyTuple:
       for idx, el in tyy.pairs:
         let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
         result.add parseStmt(ex)
         seqidx.inc
-    of TyRefObj:
-      for idx, el in tyy.pairs:
-        let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
-        result.add parseStmt(ex)
-        seqidx.inc
-    of TyTuple:
-      for idx, el in tyy.pairs:
-        let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
-        result.add parseStmt(ex)
-        seqidx.inc
+    # of TyRefObj:
+    #   for idx, el in tyy.pairs:
+    #     let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
+    #     result.add parseStmt(ex)
+    #     seqidx.inc
+    # of TyTuple:
+    #   for idx, el in tyy.pairs:
+    #     let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
+    #     result.add parseStmt(ex)
+    #     seqidx.inc
     of TyUnsupported:
       echo "Unsupported!"
+
+macro toKey*(se: untyped, tys: varargs[typed]): typed =
+  result = newStmtList()
+  var seqkey = ""
+  for ty in tys:
+    if (repr ty) == "nil": # Skip this type
+      continue
+    let (kind, tyy) = ty.gType
+    case kind
+    of TyString, TyInt, TyInt64, TyBool, TyFloat:
+      let ex = $ty & " = "  & (repr se)  & "[" & $ty  & "]"  & ".to" & ty.getType.strval.capitalizeAscii
+      result.add parseStmt(ex)
+    of TyObj, TyRefObj, TyTuple:
+      for idx, el in tyy.pairs:
+        let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[\"" & $(repr el[0]) & "\"]" & ".to" & el[1].strval.capitalizeAscii
+        result.add parseStmt(ex)
+    of TyUnsupported:
+      echo "Unsupported!"
+    else:
+      discard
+  # echo repr result
 
 
 proc mapToSqlType*(nimType: string): string =
@@ -193,11 +214,25 @@ macro csv*(ty: typed, withId: static bool = false): string =
   sq &= fmt" FROM {tyName}"
   return newLit(sq)
 
+when isMainModule and false:
+  import tables
+  var ta = {"foo": "FOO", "baa": "BAA", "iii": "123"}.toTable()
+  echo ta
+  type
+    Ob = object
+      foo: string
+      baa: string
+      iii: int
+    Rob = ref Ob
+  var ob = Rob()
+  ta.toKey(ob)
+  check ob.foo == "FOO"
+  check ob.baa == "BAA"
+  check ob.iii ==  123
 
-when isMainModule:
+when isMainModule and true:
   type
     FooBaa = object {.defaultValue: "FAA".}
-      # id: int
       first {.defaultValue: "ff".}: string
       second: string
       third {.defaultValue: 0.1337.}: float
@@ -336,6 +371,21 @@ when isMainModule and true:
       check robj.ii == 1
       check robj.ss == "foo"
       check robj.bb == true
+    test "toKey":
+      var ta = {"foo": "FOO", "baa": "BAA", "iii": "123"}.toTable()
+      type
+        Ob = object
+          foo: string
+          baa: string
+        Ii = object
+          iii: int
+        Rob = ref Ob
+      var ob = Rob()
+      var ii = Ii()
+      ta.toKey(ob, ii)
+      check ob.foo == "FOO"
+      check ob.baa == "BAA"
+      check ii.iii ==  123
     test "skip with 'nil'":
       var se = ["1", "foo", "true"]
       type Obj = object

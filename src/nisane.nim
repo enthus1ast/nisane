@@ -50,16 +50,6 @@ macro to*(se: untyped, tys: varargs[typed]): typed =
         let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
         result.add parseStmt(ex)
         seqidx.inc
-    # of TyRefObj:
-    #   for idx, el in tyy.pairs:
-    #     let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
-    #     result.add parseStmt(ex)
-    #     seqidx.inc
-    # of TyTuple:
-    #   for idx, el in tyy.pairs:
-    #     let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
-    #     result.add parseStmt(ex)
-    #     seqidx.inc
     of TyUnsupported:
       echo "Unsupported!"
 
@@ -419,9 +409,3 @@ when isMainModule and true:
       check ct(RBaa) == unescape "\"CREATE TABLE IF NOT EXISTS RBaa(\x0A\x09id INTEGER PRIMARY KEY,\x0A\x09bfirst TEXT NOT NULL,\x0A\x09bsecond TEXT NOT NULL\x0A);\""
     test "ct tuple":
       check ct(TBaa) == unescape "\"CREATE TABLE IF NOT EXISTS TBaa(\x0A\x09id INTEGER PRIMARY KEY,\x0A\x09bfirst TEXT NOT NULL,\x0A\x09bsecond TEXT NOT NULL\x0A);\""
-    # echo an(Baa)
-    # echo an(Baa)
-    # echo an(Baa)
-    # echo csv(Baa, true)
-    # echo csv(Baa, true)
-    # echo csv(Baa, true)

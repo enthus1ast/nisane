@@ -90,11 +90,5 @@ when isMainModule:
     ii: int
     bb: bool
   var robj: Robj
-  # echo foo1(robj).kind
-  # echo foo1(Robj).kind
   assert TyRefObj == foo1(Robj).kind
   assert TyRefObj == foo1(robj).kind
-
-
-
-  # echo foo2(foo) # == TyObj

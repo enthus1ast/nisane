@@ -26,7 +26,7 @@ type
 
 type
   Foo {.default: "foo", rax: "hihi", iii: 123, id: "myid".} = object
-    id {.default: 666.}: int
+    id {.default: 6616.}: int
     baa {.default: "asdf".}: string
 
 proc hasPragmaDef(ty: NimNode): bool =
@@ -71,16 +71,19 @@ proc typePragma*(ty: NimNode): Table[string, TyPragma] =
 macro dummy(ty: typed) =
   echo typePragma(ty)
 
-macro attribPragma(ty: typed) =
-  let (kind, tyy) = gType(ty)
-  case kind
-  of TyObj, TyTuple, TyRefObj:
-    for idx, el in tyy.pairs:
+# macro attribPragma(ty: typed) =
+#   echo ty.hasPragmaDef()
+  # let (kind, tyy) = gType(ty)
+  # case kind
+  # of TyObj, TyTuple, TyRefObj:
+  #   echo kind
+  #   for idx, el in ty.pairs:
+  #     echo idx, el
       # echo el.hasPragmaDef()
-      echo repr el
-  else:
-    echo "Unsupported"
-    return
+      # echo repr el
+  # else:
+  #   echo "Unsupported"
+  #   return
   # for tu in ty.gType():
     # echo tu.ty.hasPragmaDef()
   # let tyi = ty.getImpl
@@ -90,15 +93,23 @@ macro attribPragma(ty: typed) =
   #     echo "pragma expr"
 
 macro dummy2(ty: typed) =
+  echo "dummy2"
   let (kind, tyy) = gType(ty)
   case kind
   of TyObj, TyTuple, TyRefObj:
-    for idx, el in tyy.pairs:
-      echo repr attribPragma(el)
-      # lines.add $el[0]
+    echo treeRepr ty.getImpl
+    # echo treeRepr ty.getImpl
+    # for idx, el in ty.getImpl.pairs:
+    #   echo idx, " ", repr el, " "
+    #   echo treeRepr el
+    #   echo hasPragmaDef(el)
+    #   # echo repr attribPragma(el)
+    #   # lines.add $el[0]
   else:
     discard
 
 when isMainModule:
-  dummy(Foo)
+  echo "foo"
+  # dummy(Foo)ech
+  dummy2(Foo)
   # attribPragma(Foo)

@@ -1,6 +1,5 @@
 import macros, tables
-
-import """C:\Users\david\projects\nisane\src\typehelpers.nim"""
+import typehelpers
 
 template default(str: string) {.pragma.}
 template default(str: int) {.pragma.}

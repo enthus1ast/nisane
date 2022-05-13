@@ -2,6 +2,7 @@ a seq unpacker and mini `orm`
 
 ```nim
 type Obj = object
+  aa: string
   bb: int
   cc: bool
 var se = ["1337","somethingToSkip", "foo", "1", "true"]

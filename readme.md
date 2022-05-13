@@ -48,3 +48,34 @@ for row in db.getAllRows(sql"select * from Foo, Foo2 where Foo.id = Foo2.id"):
   row.to(nil, foo, nil, foo2) # skip elements with nil (eg: table id's)
   # ... use foo and foo2
 ```
+
+
+Unpack custom types:
+```
+import nisane, strutils
+
+type
+  MyCustom = object
+    x: int
+    y: int
+  Obj = object
+    aa: MyCustom
+    bb: int
+    cc: bool
+
+# Define unpacker in the form of
+# toXXX to unpack your custom types.
+proc toMyCustom(str: string): MyCustom =
+  let parts = str.split(":")
+  result.x = parts[0].parseInt
+  result.y = parts[1].parseInt
+
+var se = ["1337","somethingToSkip", "123:456", "1", "true"]
+var id: int
+var obj = Obj()
+se.to(id, nil, obj)
+assert obj.aa.x == 123
+assert obj.aa.y == 456
+assert obj.bb == 1
+assert obj.cc == true
+```

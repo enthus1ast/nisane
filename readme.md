@@ -51,7 +51,7 @@ for row in db.getAllRows(sql"select * from Foo, Foo2 where Foo.id = Foo2.id"):
 
 
 Unpack custom types:
-```
+```nim
 import nisane, strutils
 
 type

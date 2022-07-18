@@ -11,6 +11,7 @@ type
     TyTuple
     TyObj
     TyRefObj
+    TyRefObjInherited
 
 proc gType*(ty: NimNode): tuple[kind: TyKind, ty: NimNode] =
   if ty.kind == nnkSym and ty.getImpl().kind == nnkTypeDef:
@@ -35,7 +36,10 @@ proc gType*(ty: NimNode): tuple[kind: TyKind, ty: NimNode] =
 
     of nnkRefTy:
       if typeImpl[0].kind == nnkSym:
-        return (TyRefObj, ty.getTypeImpl[0].getImpl[2][2]) # [2])
+        if typeImpl[0].getImpl()[2][1].kind == nnkOfInherit:
+          return (TyRefObjInherited, ty.getTypeImpl[0].getImpl[2][2]) # [2])
+        else:
+          return (TyRefObj, ty.getTypeImpl[0].getImpl[2][2]) # [2])
       else:
         return (TyUnsupported, newNimNode(nnkNone))
 
@@ -92,3 +96,13 @@ when isMainModule:
   var robj: Robj
   assert TyRefObj == foo1(Robj).kind
   assert TyRefObj == foo1(robj).kind
+
+
+  type
+    Bobj = ref object of RootObj
+      ii: int
+      bb: bool
+    Sobj = ref object of Bobj
+  var sobj: Sobj
+  assert TyRefObjInherited == foo1(Sobj).kind
+  assert TyRefObjInherited == foo1(sobj).kind

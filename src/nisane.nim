@@ -9,6 +9,8 @@
 import macros, strutils, strformat, tables
 import typehelpers
 import typehelpers2
+export typehelpers
+export typehelpers2
 
 proc toString*(str: string): string = str
 proc toFloat*(str: string): float {.inline.} = parseFloat(str)
@@ -36,22 +38,29 @@ macro to*(se: untyped, tys: varargs[typed]): typed =
   result = newStmtList()
   var seqidx = 0
   for ty in tys:
+    dumpTree ty
     if (repr ty) == "nil": # Skip this type
       seqidx.inc
       continue
     let (kind, tyy) = ty.gType
     case kind
     of TyString, TyInt, TyInt64, TyBool, TyFloat:
-      let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".to" & ty.getType.strval.capitalizeAscii
+      # let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".to" & ty.getType.strval.capitalizeAscii
+      # echo ex
+      let ex = fmt"{$ty} = {repr se}[{seqidx}].to{ty.getType.strval.capitalizeAscii}"
       result.add parseStmt(ex)
       seqidx.inc
     of TyObj, TyRefObj, TyTuple:
       for idx, el in tyy.pairs:
-        let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
+        # let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
+        let ex = fmt"{$ty}.{toStrLit(el[0]).strval} = {repr se}[{seqidx}].to{el[1].strval.capitalizeAscii}"
         result.add parseStmt(ex)
         seqidx.inc
+    of TyRefObjInherited:
+      echo "Unsupported! TyRefObjInherited"
     of TyUnsupported:
       echo "Unsupported!"
+  echo repr result
 
 macro toKey*(se: untyped, tys: varargs[typed]): typed =
   result = newStmtList()
@@ -409,3 +418,29 @@ when isMainModule and true:
       check ct(RBaa) == unescape "\"CREATE TABLE IF NOT EXISTS RBaa(\x0A\x09id INTEGER PRIMARY KEY,\x0A\x09bfirst TEXT NOT NULL,\x0A\x09bsecond TEXT NOT NULL\x0A);\""
     test "ct tuple":
       check ct(TBaa) == unescape "\"CREATE TABLE IF NOT EXISTS TBaa(\x0A\x09id INTEGER PRIMARY KEY,\x0A\x09bfirst TEXT NOT NULL,\x0A\x09bsecond TEXT NOT NULL\x0A);\""
+    test "inherited objects":
+      type
+        Base = ref object of RootObj
+          bb: string
+        Sub = ref object of Base
+          ss: int
+      var sub = Sub()
+      var row = ["123", "bb"]
+
+      expandMacros:
+        row.to(sub)
+      row.to(sub)
+      check sub.bb == "bb"
+      check sub.ss == 123
+    # test "inherited objects + generics":
+    #   type
+    #     Base = ref object of RootObj
+    #       bb: string
+    #     Sub = ref object of Base
+    #       ss: int
+    #   var sub = Sub()
+    #   var row = ["123", "bb"]
+    #   # row.to(sub)
+    #   proc parseRow[T](row: seq[string]): T =
+    #     result = new(T)
+    #     row.to(result)

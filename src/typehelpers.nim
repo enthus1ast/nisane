@@ -13,6 +13,16 @@ type
     TyRefObj
     TyRefObjInherited
 
+proc isInherited*(typeImpl: NimNode): bool =
+  return typeImpl[0].getImpl()[2][1].kind == nnkOfInherit
+
+proc getBaseClassName*(ty: NimNode): NimNode =
+  return ty.getTypeImpl[0].getImpl()[2][1][0].getImpl()[0]
+
+proc getBaseClass*(ty: NimNode): NimNode =
+  return ty.getTypeImpl[0].getImpl()[2][1][0].getImpl()
+
+
 proc gType*(ty: NimNode): tuple[kind: TyKind, ty: NimNode] =
   if ty.kind == nnkSym and ty.getImpl().kind == nnkTypeDef:
     ## unpack the type (object and tuple) and call again
@@ -36,7 +46,7 @@ proc gType*(ty: NimNode): tuple[kind: TyKind, ty: NimNode] =
 
     of nnkRefTy:
       if typeImpl[0].kind == nnkSym:
-        if typeImpl[0].getImpl()[2][1].kind == nnkOfInherit:
+        if typeImpl.isInherited():
           return (TyRefObjInherited, ty.getTypeImpl[0].getImpl[2][2]) # [2])
         else:
           return (TyRefObj, ty.getTypeImpl[0].getImpl[2][2]) # [2])

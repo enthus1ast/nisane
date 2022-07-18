@@ -45,19 +45,32 @@ macro to*(se: untyped, tys: varargs[typed]): typed =
     let (kind, tyy) = ty.gType
     case kind
     of TyString, TyInt, TyInt64, TyBool, TyFloat:
-      # let ex = $ty & " = "  & (repr se)  & "[" & $seqidx  & "]"  & ".to" & ty.getType.strval.capitalizeAscii
-      # echo ex
       let ex = fmt"{$ty} = {repr se}[{seqidx}].to{ty.getType.strval.capitalizeAscii}"
       result.add parseStmt(ex)
       seqidx.inc
     of TyObj, TyRefObj, TyTuple:
       for idx, el in tyy.pairs:
-        # let ex = $ty & "." & toStrLit(el[0]).strval & " = "  & (repr se)  & "[" & $seqidx  & "]" & ".to" & el[1].strval.capitalizeAscii
         let ex = fmt"{$ty}.{toStrLit(el[0]).strval} = {repr se}[{seqidx}].to{el[1].strval.capitalizeAscii}"
         result.add parseStmt(ex)
         seqidx.inc
     of TyRefObjInherited:
       echo "Unsupported! TyRefObjInherited"
+      # First the elems of object
+      for idx, el in tyy.pairs:
+        let ex = fmt"{$ty}.{toStrLit(el[0]).strval} = {repr se}[{seqidx}].to{el[1].strval.capitalizeAscii}"
+        result.add parseStmt(ex)
+        seqidx.inc
+
+      # Recurse into base obj. (issue? call macros recursive???)
+      let (kind2, tyy2) = ty.getBaseClass()[0].gType()
+      for idx2, el2 in tyy2.pairs:
+        echo "#", repr kind2, " " , repr tyy2, " ", repr el2
+        let ex = fmt"{$ty}.{toStrLit(el2[0]).strval} = {repr se}[{seqidx}].to{el2[1].strval.capitalizeAscii}"
+        result.add parseStmt(ex)
+        seqidx.inc
+
+      # Stop if on root obj
+
     of TyUnsupported:
       echo "Unsupported!"
   echo repr result
@@ -432,6 +445,26 @@ when isMainModule and true:
       row.to(sub)
       check sub.bb == "bb"
       check sub.ss == 123
+    test "inherited objects (multi)":
+      type
+        Base = ref object of RootObj
+          ss: string
+        Sub = ref object of Base
+          ii: int
+        SubSub = ref object of Sub
+          ff: float
+      var subsub = SubSub()
+      # var row = ["123", "bb", "13.37"]
+      var row = ["13.37", "123", "bb", ]
+
+      expandMacros:
+        row.to(subsub)
+      row.to(subsub)
+      echo subsub[]
+      check subsub.ss == "bb"
+      check subsub.ii == 123
+      check subsub.ff == 13.37
+
     # test "inherited objects + generics":
     #   type
     #     Base = ref object of RootObj

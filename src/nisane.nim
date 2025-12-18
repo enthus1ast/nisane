@@ -220,15 +220,15 @@ when isMainModule and false:
   check ob.baa == "BAA"
   check ob.iii ==  123
 
-when isMainModule and true:
-  type
-    FooBaa = object {.defaultValue: "FAA".}
-      first {.defaultValue: "ff".}: string
-      second: string
-      third {.defaultValue: 0.1337.}: float
-      forth: int
+# when isMainModule and true:
+#   type
+#     FooBaa = object {.defaultValue: "FAA".}
+#       first {.defaultValue: "ff".}: string
+#       second: string
+#       third {.defaultValue: 0.1337.}: float
+#       forth: int
 
-when isMainModule and true:
+when isMainModule and false:
   import print
   import db_sqlite
 
